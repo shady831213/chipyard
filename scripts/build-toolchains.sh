@@ -126,6 +126,8 @@ SRCDIR="$(pwd)/toolchains" module_all qemu --prefix="${RISCV}" --target-list=ris
 
 cd "$RDIR"
 
+ln -s $(realpath --relative-to="$RISCV/bin" "$CHIPYARD_DIR/tools/firemarshal/marshal") $RISCV/bin/marshal
+
 # create specific env.sh
 {
     echo "export CHIPYARD_TOOLCHAIN_SOURCED=1"

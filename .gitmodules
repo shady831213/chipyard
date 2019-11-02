@@ -98,3 +98,6 @@
 [submodule "tools/axe"]
 	path = tools/axe
 	url = https://github.com/CTSRD-CHERI/axe.git
+[submodule "tools/FireMarshal"]
+	path = tools/firemarshal
+	url = https://github.com/firesim/FireMarshal.git
