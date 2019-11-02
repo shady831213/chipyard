@@ -56,6 +56,5 @@ if [ $NO_FIRESIM = false ]; then
   git config --unset submodule.sims/firesim.update
   git submodule update --init sims/firesim
   git -C sims/firesim submodule update --init sim/midas
-  git -C sims/firesim submodule update --init --recursive sw/firesim-software
   git config submodule.sims/firesim.update none
 fi
