@@ -56,9 +56,10 @@ elif [ -n "$1" ] ; then
     TOOLCHAIN="$1"
 fi
 
-INSTALL_DIR="$TOOLCHAIN-install"
-
-RISCV="$(pwd)/$INSTALL_DIR"
+if [ -z "$RISCV" ] ; then
+      INSTALL_DIR="$TOOLCHAIN-install"
+      RISCV="$(pwd)/$INSTALL_DIR"
+fi
 
 # install risc-v tools
 export RISCV="$RISCV"
