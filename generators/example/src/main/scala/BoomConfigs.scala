@@ -9,7 +9,8 @@ import freechips.rocketchip.config.{Config}
 // ---------------------
 
 class SmallBoomConfig extends Config(
-  new WithTop ++                                            // use normal top
+  new WithTSI ++                                            // use normal top
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++                                        // use testchipip bootrom
   new freechips.rocketchip.subsystem.WithInclusiveCache ++  // use SiFive L2 cache
   new boom.common.WithSmallBooms ++                         // 1-wide BOOM
@@ -17,7 +18,8 @@ class SmallBoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)               // "base" rocketchip system
 
 class MediumBoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithMediumBooms ++                        // 2-wide BOOM
@@ -25,7 +27,8 @@ class MediumBoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class LargeBoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithLargeBooms ++                         // 3-wide BOOM
@@ -33,7 +36,8 @@ class LargeBoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class MegaBoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithMegaBooms ++                          // 4-wide BOOM
@@ -41,7 +45,8 @@ class MegaBoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class DualSmallBoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithSmallBooms ++
@@ -49,7 +54,8 @@ class DualSmallBoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class SmallRV32BoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithoutBoomFPU ++                        // no fp
@@ -59,7 +65,8 @@ class SmallRV32BoomConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class HwachaLargeBoomConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new hwacha.DefaultHwachaConfig ++                         // use Hwacha vector accelerator

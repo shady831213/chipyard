@@ -82,53 +82,47 @@ class PWMAXI4(c: PWMParams)(implicit p: Parameters)
       new AXI4RegModule(c, _, _) with PWMModule)
 
 // DOC include start: HasPeripheryPWMTL
-trait HasPeripheryPWMTL { this: BaseSubsystem =>
-  implicit val p: Parameters
+
+case class PWMType(use_axi4: Boolean)
+case object PWMKey extends Field[Option[PWMType]](None)
+
+trait CanHavePeripheryPWM { this: BaseSubsystem =>
 
   private val address = 0x2000
   private val portName = "pwm"
 
-  val pwm = LazyModule(new PWMTL(
-    PWMParams(address, pbus.beatBytes))(p))
-
-  pbus.toVariableWidthSlave(Some(portName)) { pwm.node }
-}
-// DOC include end: HasPeripheryPWMTL
-
-// DOC include start: HasPeripheryPWMTLModuleImp
-trait HasPeripheryPWMTLModuleImp extends LazyModuleImp {
-  implicit val p: Parameters
-  val outer: HasPeripheryPWMTL
-
-  val pwmout = IO(Output(Bool()))
-
-  pwmout := outer.pwm.module.io.pwmout
-}
-// DOC include end: HasPeripheryPWMTLModuleImp
-
-trait HasPeripheryPWMAXI4 { this: BaseSubsystem =>
-  implicit val p: Parameters
-
-  private val address = 0x2000
-  private val portName = "pwm"
-
-  val pwm = LazyModule(new PWMAXI4(
-    PWMParams(address, pbus.beatBytes))(p))
-
-  pbus.toSlave(Some(portName)) {
-    pwm.node :=
-      AXI4Buffer () :=
-      TLToAXI4() :=
-      // toVariableWidthSlave doesn't use holdFirstDeny, which TLToAXI4() needs
-      TLFragmenter(pbus.beatBytes, pbus.blockBytes, holdFirstDeny = true)
+  val pwm = p(PWMKey) match {
+    case Some(a) => {
+      if (a.use_axi4) {
+        val m = LazyModule(new PWMAXI4(PWMParams(address, pbus.beatBytes))(p))
+        pbus.toSlave(Some(portName)) {
+          m.node :=
+          AXI4Buffer () :=
+          TLToAXI4() :=
+          // toVariableWidthSlave doesn't use holdFirstDeny, which TLToAXI4() needs
+          TLFragmenter(pbus.beatBytes, pbus.blockBytes, holdFirstDeny = true)
+        }
+        Some(m)
+      } else {
+        val m = LazyModule(new PWMTL(PWMParams(address, pbus.beatBytes))(p))
+        pbus.toVariableWidthSlave(Some(portName)) { m.node }
+        Some(m)
+      }
+    }
+    case None => {
+      None
+    }
   }
 }
 
-trait HasPeripheryPWMAXI4ModuleImp extends LazyModuleImp {
+trait CanHavePeripheryPWMModuleImp extends LazyModuleImp {
   implicit val p: Parameters
-  val outer: HasPeripheryPWMAXI4
+  val outer: CanHavePeripheryPWM
 
-  val pwmout = IO(Output(Bool()))
-
-  pwmout := outer.pwm.module.io.pwmout
+  outer.pwm.map { p =>
+    val pwmout = IO(Output(Bool()))
+    pwmout := p.module.io.pwmout
+  }
 }
+// DOC include end: HasPeripheryPWMTL
+

@@ -12,7 +12,7 @@ import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.tilelink.BootROMParams
 import freechips.rocketchip.devices.debug.DebugModuleParams
 import boom.common.BoomTilesKey
-import testchipip.{BlockDeviceKey, BlockDeviceConfig}
+import testchipip.{BlockDeviceKey, BlockDeviceConfig, SerialKey}
 import sifive.blocks.devices.uart.{PeripheryUARTKey, UARTParams}
 import scala.math.{min, max}
 import tracegen.TraceGenKey
@@ -45,6 +45,10 @@ class WithUARTKey extends Config((site, here, up) => {
      address = BigInt(0x54000000L),
      nTxEntries = 256,
      nRxEntries = 256))
+})
+
+class WithSerial extends Config((site, here, up) => {
+  case SerialKey => true
 })
 
 class WithBlockDevice extends Config(new testchipip.WithBlockDevice)
@@ -111,6 +115,7 @@ class FireSimRocketChipConfig extends Config(
   new WithoutTLMonitors ++
   new WithUARTKey ++
   new WithNICKey ++
+  new WithSerial ++
   new WithBlockDevice ++
   new WithRocketL2TLBs(1024) ++
   new WithPerfCounters ++
@@ -168,6 +173,7 @@ class FireSimBoomConfig extends Config(
   new WithoutTLMonitors ++
   new WithUARTKey ++
   new WithNICKey ++
+  new WithSerial ++
   new WithBlockDevice ++
   new WithBoomL2TLBs(1024) ++
   new WithoutClockGating ++

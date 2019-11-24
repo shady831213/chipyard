@@ -7,6 +7,7 @@ import freechips.rocketchip.config.{Field, Parameters, Config}
 import freechips.rocketchip.subsystem.{RocketTilesKey, WithRoccExample, WithNMemoryChannels, WithNBigCores, WithRV32}
 import freechips.rocketchip.diplomacy.{LazyModule, ValName}
 import freechips.rocketchip.devices.tilelink.BootROMParams
+import freechips.rocketchip.devices.debug.{Debug}
 import freechips.rocketchip.tile.{XLen, BuildRoCC, TileKey, LazyRoCC}
 
 import boom.common.{BoomTilesKey}
@@ -29,101 +30,16 @@ import ConfigValName._
 // Common Parameter Mixins
 // -----------------------
 
-/**
- * Class to specify where the BootRom file is (from `rebar` top)
- */
 class WithBootROM extends Config((site, here, up) => {
   case BootROMParams => BootROMParams(
     contentFileName = s"./bootrom/bootrom.rv${site(XLen)}.img")
 })
 
-// DOC include start: WithGPIO
-/**
- * Class to add in GPIO
- */
 class WithGPIO extends Config((site, here, up) => {
   case PeripheryGPIOKey => List(
     GPIOParams(address = 0x10012000, width = 4, includeIOF = false))
-})
-// DOC include end: WithGPIO
-
-// -----------------------------------------------
-// BOOM and/or Rocket Top Level System Parameter Mixins
-// -----------------------------------------------
-
-/**
- * Class to specify a "plain" top level BOOM and/or Rocket system
- */
-class WithTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) => {
-    Module(LazyModule(new Top()(p)).module)
-  }
-})
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with DTM
- */
-class WithDTMTop extends Config((site, here, up) => {
-  case BuildTopWithDTM => (clock: Clock, reset: Bool, p: Parameters) => {
-    Module(LazyModule(new TopWithDTM()(p)).module)
-  }
-})
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with PWM
- */
-// DOC include start: WithPWMTop
-class WithPWMTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) =>
-    Module(LazyModule(new TopWithPWMTL()(p)).module)
-})
-// DOC include end: WithPWMTop
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with a PWM AXI4
- */
-class WithPWMAXI4Top extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) =>
-    Module(LazyModule(new TopWithPWMAXI4()(p)).module)
-})
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with a TL-attached GCD device
- */
-class WithGCDTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) =>
-    Module(LazyModule(new TopWithGCD()(p)).module)
-})
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with a block device
- */
-class WithBlockDeviceModelTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) => {
-    val top = Module(LazyModule(new TopWithBlockDevice()(p)).module)
-    top.connectBlockDeviceModel()
-    top
-  }
-})
-
-/**
- * Class to specify a top level BOOM and/or Rocket system with a simulator block device
- */
-class WithSimBlockDeviceTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) => {
-    val top = Module(LazyModule(new TopWithBlockDevice()(p)).module)
-    top.connectSimBlockDevice(clock, reset)
-    top
-  }
-})
-
-// DOC include start: WithGPIOTop
-/**
- * Class to specify a top level BOOM and/or Rocket system with GPIO
- */
-class WithGPIOTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) => {
-    val top = Module(LazyModule(new TopWithGPIO()(p)).module)
+  case BuildTop => (clock: Clock, reset: Bool, p: Parameters, success: Bool) => {
+    val top = up(BuildTop, site)(clock, reset, p, success)
     for (gpio <- top.gpio) {
       for (pin <- gpio.pins) {
         pin.i.ival := false.B
@@ -132,7 +48,60 @@ class WithGPIOTop extends Config((site, here, up) => {
     top
   }
 })
-// DOC include end: WithGPIOTop
+
+class WithNoGPIO extends Config((site, here, up) => {
+  case PeripheryGPIOKey => Seq()
+})
+
+class WithTSI extends Config((site, here, up) => {
+  case SerialKey => true
+  case BuildTop => (clock: Clock, reset: Bool, p: Parameters, success: Bool) => {
+    val top = up(BuildTop, site)(clock, reset, p, success)
+    success := top.connectSimSerial()
+    top
+  }
+})
+
+class WithDTM extends Config((site, here, up) => {
+  case BuildTop => (clock: Clock, reset: Bool, p: Parameters, success: Bool) => {
+    val top = up(BuildTop, site)(clock, reset, p, success)
+    top.reset := reset.asBool | top.debug.ndreset
+    Debug.connectDebug(top.debug, clock, reset.asBool, success)(p)
+    top
+  }
+})
+
+class WithPWMTL extends Config((site, here, up) => {
+  case PWMKey => Some(PWMType(use_axi4=false))
+})
+
+class WithPWMAXI4 extends Config((site, here, up) => {
+  case PWMKey => Some(PWMType(use_axi4=true))
+})
+
+class WithGCD extends Config((site, here, up) => {
+  case GCDKey => true
+})
+
+class WithBlockDeviceModel extends Config((site, here, up) => {
+  case BuildTop => (clock: Clock, reset: Bool, p: Parameters, success: Bool) => {
+    val top = up(BuildTop, site)(clock, reset, p, success)
+    top.connectBlockDeviceModel()
+    top
+  }
+})
+
+class WithSimBlockDevice extends Config((site, here, up) => {
+  case BuildTop => (clock: Clock, reset: Bool, p: Parameters, success: Bool) => {
+    val top = up(BuildTop, site)(clock, reset, p, success)
+    top.connectSimBlockDevice(clock, reset)
+    top
+  }
+})
+
+class WithInitZero(base: BigInt, size: BigInt) extends Config((site, here, up) => {
+  case InitZeroKey => InitZeroConfig(base, size)
+})
 
 // ------------------
 // Multi-RoCC Support
@@ -172,13 +141,3 @@ class WithMultiRoCCHwacha(harts: Int*) extends Config((site, here, up) => {
   }
 })
 
-// DOC include start: WithInitZero
-class WithInitZero(base: BigInt, size: BigInt) extends Config((site, here, up) => {
-  case InitZeroKey => InitZeroConfig(base, size)
-})
-
-class WithInitZeroTop extends Config((site, here, up) => {
-  case BuildTop => (clock: Clock, reset: Bool, p: Parameters) =>
-    Module(LazyModule(new TopWithInitZero()(p)).module)
-})
-// DOC include end: WithInitZero

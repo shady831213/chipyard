@@ -8,7 +8,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, IdRange}
 import testchipip.TLHelper
 
 case class InitZeroConfig(base: BigInt, size: BigInt)
-case object InitZeroKey extends Field[InitZeroConfig]
+case object InitZeroKey extends Field[Option[InitZeroConfig]](None)
 
 class InitZero(implicit p: Parameters) extends LazyModule {
   val node = TLHelper.makeClientNode(
@@ -41,7 +41,7 @@ class InitZeroModuleImp(outer: InitZero) extends LazyModuleImp(outer) {
   mem.d.ready := state === s_resp
 
   when (state === s_init) {
-    addr := config.base.U
+    addr := config.get.base.U
     bytesLeft := config.size.U
     state := s_write
   }
@@ -57,13 +57,11 @@ class InitZeroModuleImp(outer: InitZero) extends LazyModuleImp(outer) {
   }
 }
 
-trait HasPeripheryInitZero { this: BaseSubsystem =>
+trait CanHavePeripheryInitZero { this: BaseSubsystem =>
   implicit val p: Parameters
 
-  val initZero = LazyModule(new InitZero()(p))
-  fbus.fromPort(Some("init-zero"))() := initZero.node
-}
-
-trait HasPeripheryInitZeroModuleImp extends LazyModuleImp {
-  // Don't need anything here
+  p(InitZeroKey) .map { k =>
+    val initZero = LazyModule(new InitZero()(p))
+    fbus.fromPort(Some("init-zero"))() := initZero.node
+  }
 }

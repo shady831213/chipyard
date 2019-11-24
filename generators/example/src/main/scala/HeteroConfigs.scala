@@ -9,7 +9,8 @@ import freechips.rocketchip.config.{Config}
 // ---------------------
 
 class LargeBoomAndRocketConfig extends Config(
-  new WithTop ++                                           // default top
+  new WithTSI ++                                           // default top
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++                                       // default bootrom
   new freechips.rocketchip.subsystem.WithInclusiveCache ++ // use SiFive l2
   new boom.common.WithRenumberHarts ++                     // avoid hartid overlap
@@ -19,7 +20,8 @@ class LargeBoomAndRocketConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)              // "base" rocketchip system
 
 class SmallBoomAndRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithRenumberHarts ++
@@ -30,7 +32,8 @@ class SmallBoomAndRocketConfig extends Config(
 
 // DOC include start: BoomAndRocketWithHwacha
 class HwachaLargeBoomAndHwachaRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new hwacha.DefaultHwachaConfig ++                      // add hwacha to all harts
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
@@ -42,7 +45,8 @@ class HwachaLargeBoomAndHwachaRocketConfig extends Config(
 // DOC include end: BoomAndRocketWithHwacha
 
 class RoccLargeBoomAndRoccRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithRoccExample ++  // add example rocc accelerator to all harts
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
@@ -53,7 +57,8 @@ class RoccLargeBoomAndRoccRocketConfig extends Config(
   new freechips.rocketchip.system.BaseConfig)
 
 class DualLargeBoomAndRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithRenumberHarts ++
@@ -64,7 +69,8 @@ class DualLargeBoomAndRocketConfig extends Config(
 
 // DOC include start: DualBoomAndRocketOneHwacha
 class DualLargeBoomAndHwachaRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new WithMultiRoCC ++                                  // support heterogeneous rocc
@@ -77,7 +83,8 @@ class DualLargeBoomAndHwachaRocketConfig extends Config(
 // DOC include end: DualBoomAndRocketOneHwacha
 
 class LargeBoomAndRV32RocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithRenumberHarts ++
@@ -89,7 +96,8 @@ class LargeBoomAndRV32RocketConfig extends Config(
 
 // DOC include start: DualBoomAndRocket
 class DualLargeBoomAndDualRocketConfig extends Config(
-  new WithTop ++
+  new WithTSI ++
+  new WithNoGPIO ++                                        // no GPIO pins
   new WithBootROM ++
   new freechips.rocketchip.subsystem.WithInclusiveCache ++
   new boom.common.WithRenumberHarts ++

@@ -77,22 +77,20 @@ class GCD(c: GCDParams)(implicit p: Parameters)
       new TLRegBundle(c, _))(
       new TLRegModule(c, _, _) with GCDModule)
 
-trait HasPeripheryGCD { this: BaseSubsystem =>
+
+case object GCDKey extends Field[Boolean](false)
+
+trait CanHavePeripheryGCD { this: BaseSubsystem =>
   implicit val p: Parameters
 
   private val address = 0x2000
   private val portName = "gcd"
   private val gcdWidth = 32
 
-  val gcd = LazyModule(new GCD(
-    GCDParams(address, pbus.beatBytes, gcdWidth))(p))
-
-  pbus.toVariableWidthSlave(Some(portName)) { gcd.node }
-}
-
-trait HasPeripheryGCDModuleImp extends LazyModuleImp {
-  implicit val p: Parameters
-  val outer: HasPeripheryGCD
+  if (p(GCDKey)) {
+    val gcd = LazyModule(new GCD(GCDParams(address, pbus.beatBytes, gcdWidth))(p))
+    pbus.toVariableWidthSlave(Some(portName)) { gcd.node }
+  }
 }
 
 // DOC include end: GCD cake
