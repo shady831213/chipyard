@@ -11,11 +11,11 @@ object Generator extends GeneratorApp {
   override def addTestSuites {
     implicit val p: Parameters = params
     TestSuiteHelper.addRocketTestSuites
-    TestSuiteHelper.addBoomTestSuites
+//    TestSuiteHelper.addBoomTestSuites
   }
 
   // specify the name that the generator outputs files as
-  val longName = names.topModuleProject + "." + names.topModuleClass + "." + names.configs
+  override lazy val longName = names.topModuleProject + "." + names.topModuleClass + "." + names.configs
 
   // generate files
   generateFirrtl

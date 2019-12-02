@@ -2,13 +2,12 @@ package example
 
 import chisel3._
 import chisel3.experimental._
-
 import firrtl.transforms.{BlackBoxResourceAnno, BlackBoxSourceHelper}
-
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.util.GeneratorApp
-import freechips.rocketchip.devices.debug.{Debug}
+import freechips.rocketchip.devices.debug.Debug
+import freechips.rocketchip.system.SimAXIMem
 
 // -------------------------------
 // BOOM and/or Rocket Test Harness
@@ -30,12 +29,12 @@ class TestHarness(implicit val p: Parameters) extends Module {
 
   val dut = p(BuildTop)(clock, reset.toBool, p)
 
-  dut.debug := DontCare
-  dut.connectSimAXIMem()
-  dut.connectSimAXIMMIO()
+  dut.debug.get := DontCare
+  SimAXIMem.connectMem(dut.outer)
+  SimAXIMem.connectMMIO(dut.outer)
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
-  dut.l2_frontend_bus_axi4.foreach(axi => {
+  dut.outer.l2_frontend_bus_axi4.foreach(axi => {
     axi.tieoff()
     experimental.DataMirror.directionOf(axi.ar.ready) match {
       case core.ActualDirection.Input =>
@@ -65,12 +64,12 @@ class TestHarnessWithDTM(implicit p: Parameters) extends Module
 
   val dut = p(BuildTopWithDTM)(clock, reset.toBool, p)
 
-  dut.reset := reset.asBool | dut.debug.ndreset
-  dut.connectSimAXIMem()
-  dut.connectSimAXIMMIO()
+  dut.reset := reset.asBool | dut.debug.get.ndreset
+  SimAXIMem.connectMem(dut.outer)
+  SimAXIMem.connectMMIO(dut.outer)
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
-  dut.l2_frontend_bus_axi4.foreach(axi => {
+  dut.outer.l2_frontend_bus_axi4.foreach(axi => {
     axi.tieoff()
     experimental.DataMirror.directionOf(axi.ar.ready) match {
       case core.ActualDirection.Input =>
@@ -83,5 +82,5 @@ class TestHarnessWithDTM(implicit p: Parameters) extends Module
     }
   })
 
-  Debug.connectDebug(dut.debug, clock, reset.asBool, io.success)
+  Debug.connectDebug(dut.debug, dut.psd, clock, reset.asBool, io.success)
 }

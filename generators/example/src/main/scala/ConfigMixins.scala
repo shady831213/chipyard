@@ -9,11 +9,11 @@ import freechips.rocketchip.diplomacy.{LazyModule, ValName}
 import freechips.rocketchip.devices.tilelink.BootROMParams
 import freechips.rocketchip.tile.{XLen, BuildRoCC, TileKey, LazyRoCC}
 
-import boom.common.{BoomTilesKey}
+//import boom.common.{BoomTilesKey}
 
 import testchipip._
 
-import hwacha.{Hwacha}
+//import hwacha.{Hwacha}
 
 import sifive.blocks.devices.gpio._
 
@@ -161,16 +161,17 @@ class WithMultiRoCC extends Config((site, here, up) => {
  *
  * @param harts harts to specify which will get a Hwacha
  */
-class WithMultiRoCCHwacha(harts: Int*) extends Config((site, here, up) => {
-  case MultiRoCCKey => {
-    require(harts.max <= ((up(RocketTilesKey, site).length + up(BoomTilesKey, site).length) - 1))
-    up(MultiRoCCKey, site) ++ harts.distinct.map{ i =>
-      (i -> Seq((p: Parameters) => {
-        LazyModule(new Hwacha()(p)).suggestName("hwacha")
-      }))
-    }
-  }
-})
+//fixme:hwacha not support chisel3.2.0
+//class WithMultiRoCCHwacha(harts: Int*) extends Config((site, here, up) => {
+//  case MultiRoCCKey => {
+//    require(harts.max <= ((up(RocketTilesKey, site).length + up(BoomTilesKey, site).length) - 1))
+//    up(MultiRoCCKey, site) ++ harts.distinct.map{ i =>
+//      (i -> Seq((p: Parameters) => {
+//        LazyModule(new Hwacha()(p)).suggestName("hwacha")
+//      }))
+//    }
+//  }
+//})
 
 // DOC include start: WithInitZero
 class WithInitZero(base: BigInt, size: BigInt) extends Config((site, here, up) => {
