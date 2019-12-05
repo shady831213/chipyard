@@ -83,6 +83,9 @@ object GenerateSimFiles extends App with HasGenerateSimConfig {
   }
   def resources(sim: Simulator): Seq[String] = Seq(
     "/testchipip/csrc/SimSerial.cc",
+//    "/testchipip/csrc/blkdev.cc",
+//    "/testchipip/csrc/blkdev.h",
+//    "/testchipip/csrc/SimBlockDevice.cc",
     "/csrc/SimDTM.cc",
     "/csrc/SimJTAG.cc",
     "/csrc/remote_bitbang.h",
@@ -91,6 +94,7 @@ object GenerateSimFiles extends App with HasGenerateSimConfig {
   ) ++ (sim match { // simulator specific files to include
     case VerilatorSimulator => Seq(
       "/csrc/emulator.cc",
+      "/csrc/emulator.h",
       "/csrc/verilator.h",
     )
     case VCSSimulator => Seq(

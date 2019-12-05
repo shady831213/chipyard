@@ -37,6 +37,11 @@ class WithBootROM extends Config((site, here, up) => {
     contentFileName = s"./bootrom/bootrom.rv${site(XLen)}.img")
 })
 
+class WithCustomBootROM extends Config((site, here, up) => {
+  case BootROMParams => BootROMParams(
+    contentFileName = s"./bootrom/bootrom.img")
+})
+
 // DOC include start: WithGPIO
 /**
  * Class to add in GPIO

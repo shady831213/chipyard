@@ -30,7 +30,8 @@ class TestHarness(implicit val p: Parameters) extends Module {
   val dut = p(BuildTop)(clock, reset.toBool, p)
 
   dut.debug.get := DontCare
-  SimAXIMem.connectMem(dut.outer)
+  //SimAXIMem.connectMem(dut.outer)
+  PreloadSimAXIMem.connectMem(dut.outer)
   SimAXIMem.connectMMIO(dut.outer)
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
@@ -65,7 +66,8 @@ class TestHarnessWithDTM(implicit p: Parameters) extends Module
   val dut = p(BuildTopWithDTM)(clock, reset.toBool, p)
 
   dut.reset := reset.asBool | dut.debug.get.ndreset
-  SimAXIMem.connectMem(dut.outer)
+  PreloadSimAXIMem.connectMem(dut.outer)
+  //  SimAXIMem.connectMem(dut.outer)
   SimAXIMem.connectMMIO(dut.outer)
   dut.dontTouchPorts()
   dut.tieOffInterrupts()

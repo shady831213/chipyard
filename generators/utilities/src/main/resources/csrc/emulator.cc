@@ -7,7 +7,9 @@
 #include "verilated_vcd_c.h"
 #endif
 #include <fesvr/dtm.h>
-#include <fesvr/tsi.h>
+#include <fesvr/memif.h>
+#include <fesvr/elfloader.h>
+#include "emulator.h"
 #include "remote_bitbang.h"
 #include <iostream>
 #include <fcntl.h>
@@ -16,6 +18,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <typeinfo>
+#include <sys/stat.h>
 
 // For option parsing, which is split across this file, Verilog, and
 // FESVR's HTIF, a few external files must be pulled in. The list of
@@ -35,6 +39,78 @@
 extern tsi_t* tsi;
 extern dtm_t* dtm;
 extern remote_bitbang_t * jtag;
+
+
+void _load_program(const std::vector<std::string>& targs, reg_t* entry, addr_t* tohost_addr, addr_t* fromhost_addr, addr_t* sig_addr, addr_t* sig_len) {
+  std::string path;
+  if (access(targs[0].c_str(), F_OK) == 0)
+    path = targs[0];
+  else if (targs[0].find('/') == std::string::npos)
+  {
+    std::string test_path = targs[0];
+    if (access(test_path.c_str(), F_OK) == 0)
+      path = test_path;
+  }
+
+  if (path.empty())
+    throw std::runtime_error(
+        "could not open " + targs[0] +
+        " (did you misspell it? If VCS, did you forget +permissive/+permissive-off?)");
+  // temporarily construct a memory interface that skips writing bytes
+  // that have already been preloaded through a sideband
+  hexwriter_t writer(0x80000000, 1, 0x100000000);
+  memif_t mem_writer(&writer);
+  std::map<std::string, uint64_t> symbols = load_elf(path.c_str(), &mem_writer, entry);
+  std::cout << "after write" << std::endl;
+  if (symbols.count("tohost") && symbols.count("fromhost")) {
+    *tohost_addr = symbols["tohost"];
+    *fromhost_addr = symbols["fromhost"];
+  } else {
+    fprintf(stderr, "warning: tohost and fromhost symbols not in ELF; can't communicate with target\n");
+  }
+
+  // detect torture tests so we can print the memory signature at the end
+  if (symbols.count("begin_signature") && symbols.count("end_signature"))
+  {
+    *sig_addr = symbols["begin_signature"];
+    *sig_len = symbols["end_signature"] - *sig_addr;
+  }
+  std::cout << "hex content:" << std::endl;
+  std::cout << writer << std::endl;
+}
+
+ftsi_t::ftsi_t(int argc, char** argv) : tsi_t(argc, argv){
+}
+
+ftsi_t::~ftsi_t(void){}
+
+void ftsi_t::load_program() {
+    _load_program(this->target_args(), &entry, &tohost_addr, &fromhost_addr, &sig_addr, &sig_len);
+}
+
+hexwriter_t::hexwriter_t(size_t b, size_t w, size_t d): htif_hexwriter_t(b, w, d){
+}
+
+std::ostream& operator<< (std::ostream& o, const hexwriter_t& h)
+{
+  std::ios_base::fmtflags flags = o.setf(std::ios::hex,std::ios::basefield);
+
+  for(size_t addr = 0; addr < h.depth; addr++)
+  {
+    std::map<addr_t,std::vector<char> >::const_iterator i = h.mem.find(addr);
+    if(i == h.mem.end())
+      break;
+    else
+      for(size_t j = 0; j < h.width; j++)
+        o << ((i->second[h.width-j-1] >> 4) & 0xF) << (i->second[h.width-j-1] & 0xF);
+    o << std::endl;
+  }
+
+  o.setf(flags);
+
+  return o;
+}
+
 
 static uint64_t trace_count = 0;
 bool verbose;
@@ -270,7 +346,9 @@ done_processing:
 
   jtag = new remote_bitbang_t(rbb_port);
   dtm = new dtm_t(htif_argc, htif_argv);
-  tsi = new tsi_t(htif_argc, htif_argv);
+  //tsi = new tsi_t(htif_argc, htif_argv);
+
+  tsi = new ftsi_t(htif_argc, htif_argv);
 
   signal(SIGTERM, handle_sigterm);
 
