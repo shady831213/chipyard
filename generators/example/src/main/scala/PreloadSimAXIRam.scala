@@ -1,36 +1,42 @@
 package example
 
-import chipsalliance.rocketchip.config.{Field, Parameters}
+import chipsalliance.rocketchip.config.{Config, Field, Parameters}
 import chisel3._
 import chisel3.experimental.{ChiselAnnotation, annotate}
 import chisel3.internal.InstanceId
 import chisel3.util._
 import firrtl.annotations.Annotation
-import freechips.rocketchip.amba.axi4.{AXI4Buffer, AXI4EdgeParameters, AXI4Fragmenter, AXI4MasterNode, AXI4RAM, AXI4Xbar}
-import freechips.rocketchip.diplomacy.{AddressSet, InModuleBody, LazyModule, SimpleLazyModule}
+import freechips.rocketchip.amba.axi4.{AXI4Buffer, AXI4EdgeParameters, AXI4Fragmenter, AXI4MasterNode, AXI4Parameters, AXI4RAM, AXI4SlaveNode, AXI4SlaveParameters, AXI4SlavePortParameters, AXI4Xbar}
+import freechips.rocketchip.diplomacy.{AddressSet, DiplomaticSRAM, InModuleBody, LazyModule, LazyModuleImp, RegionType, SimpleLazyModule, TransferSizes}
 import freechips.rocketchip.diplomaticobjectmodel.DiplomaticObjectModelAddressing
-import freechips.rocketchip.diplomaticobjectmodel.logicaltree.LogicalTreeNode
-import freechips.rocketchip.diplomaticobjectmodel.model.{OMMemory, OMRTLModule, OMSRAM}
+import freechips.rocketchip.diplomaticobjectmodel.logicaltree.{BusMemoryLogicalTreeNode, LogicalModuleTree, LogicalTreeNode}
+import freechips.rocketchip.diplomaticobjectmodel.model.{AXI4_Lite, OMMemory, OMRTLModule, OMSRAM}
 import freechips.rocketchip.subsystem.{CanHaveMasterAXI4MemPort, ExtMem}
-import freechips.rocketchip.util.{Annotated, SRAMAnnotation}
+import freechips.rocketchip.util._
 import chisel3.util.experimental._
 
-case object MemPrelaodFile extends Field[Option[String]](None)
+case object MemPreloadFile extends Field[Option[String]](None)
+
+class WithMemPreloadFile extends Config((site, here, up) => {
+  case MemPreloadFile => Some(s"./preload_ftsi.hex")
+})
 
 /** Memory with AXI port for use in elaboratable test harnesses. */
 class PreloadSimAXIMem(edge: AXI4EdgeParameters, size: BigInt)(implicit p: Parameters) extends SimpleLazyModule {
-  private val hexfile = p(MemPrelaodFile)
+  private val hexfile = p(MemPreloadFile)
   val node = AXI4MasterNode(List(edge.master))
-  val srams = hexfile match {
+  val xbar = AXI4Xbar()
+  hexfile match {
     case Some(name) => {
       val aSets = AddressSet.misaligned(0, size)
       require(aSets.length == 1, "preload memory dose not support splited memory!")
-      aSets.map { aSet => LazyModule(new PreloadAXI4RAM(aSet, name, beatBytes = edge.bundle.dataBits / 8)) }
+      val srams = aSets.map { aSet => LazyModule(new PreloadAXI4RAM(aSet, name, beatBytes = edge.bundle.dataBits / 8)) }
+      srams.foreach { s => s.node := AXI4Buffer() := AXI4Fragmenter() := xbar }
     }
-    case None => AddressSet.misaligned(0, size).map { aSet => LazyModule(new AXI4RAM(aSet, beatBytes = edge.bundle.dataBits / 8)) }
+    case None => {
+      require(false, "unreachable!")
+    }
   }
-  val xbar = AXI4Xbar()
-  srams.foreach { s => s.node := AXI4Buffer() := AXI4Fragmenter() := xbar }
   xbar := node
   val io_axi4 = InModuleBody {
     node.makeIOs()
@@ -58,8 +64,21 @@ class PreloadAXI4RAM(
                       devName: Option[String] = None,
                       errors: Seq[AddressSet] = Nil,
                       wcorrupt: Boolean = false)
-                    (implicit p: Parameters) extends AXI4RAM(address, cacheable, parentLogicalTreeNode, executable, beatBytes, devName, errors, wcorrupt) {
-  override def makeSinglePortedByteWriteSeqMem(size: BigInt, lanes: Int = beatBytes, bits: Int = 8) = {
+                    (implicit p: Parameters) extends DiplomaticSRAM(address, beatBytes, devName) {
+  val node = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
+    Seq(AXI4SlaveParameters(
+      address = List(address) ++ errors,
+      resources = resources,
+      regionType = if (cacheable) RegionType.UNCACHED else RegionType.IDEMPOTENT,
+      executable = executable,
+      supportsRead = TransferSizes(1, beatBytes),
+      supportsWrite = TransferSizes(1, beatBytes),
+      interleavedId = Some(0))),
+    beatBytes = beatBytes,
+    wcorrupt = wcorrupt,
+    minLatency = 1)))
+
+  def makeSinglePortedByteWriteMem(size: BigInt, lanes: Int = beatBytes, bits: Int = 8) = {
     // We require the address range to include an entire beat (for the write mask)
 
     val (mem, omSRAM) = PreloadDescribedSRAM(
@@ -78,6 +97,120 @@ class PreloadAXI4RAM(
     )
 
     (mem, omSRAM, Seq(omMem))
+  }
+
+  implicit class MemAsSeqMem[T <: Data](val x: Mem[T]) {
+    def syncRead(addr: UInt, ren: Bool) = {
+      val r_addr = Wire(UInt(addr.getWidth.W))
+      r_addr := DontCare
+      var port: Option[T] = None
+      when(ren) {
+        r_addr := addr
+        port = Some(x.read(r_addr))
+      }
+      port.get
+    }
+
+    def readAndHold(addr: UInt, enable: Bool): T = syncRead(addr, enable) holdUnless RegNext(enable)
+  }
+
+  lazy val module = new LazyModuleImp(this) {
+    val (in, _) = node.in(0)
+    val (mem, omSRAM, omMem) = makeSinglePortedByteWriteMem(size = 1 << mask.filter(b => b).size)
+
+    parentLogicalTreeNode.map {
+      case parentLTN =>
+        def sramLogicalTreeNode = new BusMemoryLogicalTreeNode(
+          device = device,
+          omSRAMs = Seq(omSRAM),
+          busProtocol = new AXI4_Lite(None),
+          dataECC = None,
+          hasAtomics = None,
+          busProtocolSpecification = None)
+
+        LogicalModuleTree.add(parentLTN, sramLogicalTreeNode)
+    }
+
+    val corrupt = if (wcorrupt) Some(Mem(1 << mask.filter(b => b).size, UInt(2.W))) else None
+
+    val r_addr = Cat((mask zip (in.ar.bits.addr >> log2Ceil(beatBytes)).asBools).filter(_._1).map(_._2).reverse)
+    val w_addr = Cat((mask zip (in.aw.bits.addr >> log2Ceil(beatBytes)).asBools).filter(_._1).map(_._2).reverse)
+    val r_sel0 = address.contains(in.ar.bits.addr)
+    val w_sel0 = address.contains(in.aw.bits.addr)
+
+    val w_full = RegInit(Bool(), false.B)
+    val w_id = Reg(UInt())
+    val w_user = Reg(UInt((1 max in.params.userBits).W))
+    val r_sel1 = RegInit(r_sel0)
+    val w_sel1 = RegInit(w_sel0)
+
+    when(in.b.fire()) {
+      w_full := false.B
+    }
+    when(in.aw.fire()) {
+      w_full := true.B
+    }
+
+    when(in.aw.fire()) {
+      w_id := in.aw.bits.id
+      w_sel1 := w_sel0
+      in.aw.bits.user.foreach {
+        w_user := _
+      }
+    }
+    val wdata = VecInit(Seq.tabulate(beatBytes) { i => in.w.bits.data(8 * (i + 1) - 1, 8 * i) })
+    val preWdata = mem.read(w_addr).asTypeOf(wdata)
+    when(in.aw.fire() && w_sel0) {
+      mem.write(w_addr, VecInit((in.w.bits.strb.asBools zip (wdata zip preWdata)).map { case (m, (w, r)) => Mux(m, w, r) }).asUInt())
+      //      mem.write(w_addr, wdata, in.w.bits.strb.asBools)
+      corrupt.foreach {
+        _.write(w_addr, in.w.bits.corrupt.get.asUInt)
+      }
+    }
+
+    in.b.valid := w_full
+    in.aw.ready := in.w.valid && (in.b.ready || !w_full)
+    in.w.ready := in.aw.valid && (in.b.ready || !w_full)
+
+    in.b.bits.id := w_id
+    in.b.bits.resp := Mux(w_sel1, AXI4Parameters.RESP_OKAY, AXI4Parameters.RESP_DECERR)
+    in.b.bits.user.foreach {
+      _ := w_user
+    }
+
+    val r_full = RegInit(Bool(), false.B)
+    val r_id = Reg(UInt())
+    val r_user = Reg(UInt((1 max in.params.userBits).W))
+
+    when(in.r.fire()) {
+      r_full := false.B
+    }
+    when(in.ar.fire()) {
+      r_full := true.B
+    }
+
+    when(in.ar.fire()) {
+      r_id := in.ar.bits.id
+      r_sel1 := r_sel0
+      in.ar.bits.user.foreach {
+        r_user := _
+      }
+    }
+
+    val ren = in.ar.fire()
+    val rdata = mem.readAndHold(r_addr, ren).asTypeOf(preWdata)
+    val rcorrupt = corrupt.map(_.readAndHold(r_addr, ren)(0)).getOrElse(false.B)
+
+    in.r.valid := r_full
+    in.ar.ready := in.r.ready || !r_full
+
+    in.r.bits.id := r_id
+    in.r.bits.resp := Mux(r_sel1, Mux(rcorrupt, AXI4Parameters.RESP_SLVERR, AXI4Parameters.RESP_OKAY), AXI4Parameters.RESP_DECERR)
+    in.r.bits.data := Cat(rdata.reverse)
+    in.r.bits.user.foreach {
+      _ := r_user
+    }
+    in.r.bits.last := true.B
   }
 }
 
@@ -113,9 +246,9 @@ object PreloadDescribedSRAM {
                         size: BigInt, // depth
                         data: T,
                         hexfile: String
-                      ): (SyncReadMem[T], OMSRAM) = {
+                      ): (Mem[UInt], OMSRAM) = {
 
-    val mem = SyncReadMem(size, data)
+    val mem = Mem(size, UInt(data.getWidth.W))
 
     loadMemoryFromFile(mem, hexfile)
 

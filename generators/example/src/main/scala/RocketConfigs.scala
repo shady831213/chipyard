@@ -81,6 +81,7 @@ class SimBlockDeviceRocketConfig extends Config(
     new WithSimBlockDeviceTop ++ // use top with block-device IOs and connect to simblockdevice
     //new WithBootROM ++
     new WithCustomBootROM ++
+    new WithMemPreloadFile ++
     new freechips.rocketchip.subsystem.WithInclusiveCache ++
     new freechips.rocketchip.subsystem.WithNBigCores(1) ++
     new freechips.rocketchip.system.BaseConfig)
