@@ -101,17 +101,11 @@ class PreloadAXI4RAM(
 
   implicit class MemAsSeqMem[T <: Data](val x: Mem[T]) {
     def syncRead(addr: UInt, ren: Bool) = {
-      val r_addr = Wire(UInt(addr.getWidth.W))
-      r_addr := DontCare
-      var port: Option[T] = None
-      when(ren) {
-        r_addr := addr
-        port = Some(x.read(r_addr))
-      }
-      port.get
+      val r_addr = RegEnable(addr, ren)
+      x.read(r_addr)
     }
 
-    def readAndHold(addr: UInt, enable: Bool): T = syncRead(addr, enable) holdUnless RegNext(enable)
+    def readAndHold(addr: UInt, enable: Bool): T = syncRead(addr, enable)
   }
 
   lazy val module = new LazyModuleImp(this) {

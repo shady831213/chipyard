@@ -83,7 +83,7 @@ void _load_program(const std::vector<std::string>& targs, reg_t* entry, addr_t* 
     fprintf(stderr, "Could not open %s\n", "preload_ftsi.hex");
     abort();
   }
-  _file << "0\n" << writer << std::endl;
+  _file <<  writer << std::endl;
   _file.close();
   std::cout << "program load done!" << std::endl;
 }
