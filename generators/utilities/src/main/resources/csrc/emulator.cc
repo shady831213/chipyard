@@ -9,6 +9,7 @@
 #include <fesvr/dtm.h>
 #include <fesvr/memif.h>
 #include <fesvr/elfloader.h>
+#include <fesvr/htif_hexwriter.h>
 #include "emulator.h"
 #include "remote_bitbang.h"
 #include <iostream>
@@ -60,7 +61,7 @@ void _load_program(const std::vector<std::string>& targs, reg_t* entry, addr_t* 
         " (did you misspell it? If VCS, did you forget +permissive/+permissive-off?)");
   // temporarily construct a memory interface that skips writing bytes
   // that have already been preloaded through a sideband
-  hexwriter_t writer(0x80000000, 8, 0x100000000 >> 3);
+  htif_hexwriter_t writer(0x80000000, 8, 0x10000000 >> 3);
   memif_t mem_writer(&writer);
   std::map<std::string, uint64_t> symbols = load_elf(path.c_str(), &mem_writer, entry);
   std::cout << "after write" << std::endl;
@@ -97,28 +98,28 @@ ftsi_t::~ftsi_t(void){}
 void ftsi_t::load_program() {
 }
 
-hexwriter_t::hexwriter_t(size_t b, size_t w, size_t d): htif_hexwriter_t(b, w, d){
-}
-
-std::ostream& operator<< (std::ostream& o, const hexwriter_t& h)
-{
-  std::ios_base::fmtflags flags = o.setf(std::ios::hex,std::ios::basefield);
-
-  for(size_t addr = 0; addr < h.depth; addr++)
-  {
-    std::map<addr_t,std::vector<char> >::const_iterator i = h.mem.find(addr);
-    if(i == h.mem.end())
-      break;
-    else
-      for(size_t j = 0; j < h.width; j++)
-        o << ((i->second[h.width-j-1] >> 4) & 0xF) << (i->second[h.width-j-1] & 0xF);
-    o << std::endl;
-  }
-
-  o.setf(flags);
-
-  return o;
-}
+//hexwriter_t::hexwriter_t(size_t b, size_t w, size_t d): htif_hexwriter_t(b, w, d){
+//}
+//
+//std::ostream& operator<< (std::ostream& o, const hexwriter_t& h)
+//{
+//  std::ios_base::fmtflags flags = o.setf(std::ios::hex,std::ios::basefield);
+//
+//  for(size_t addr = 0; addr < h.depth; addr++)
+//  {
+//    std::map<addr_t,std::vector<char> >::const_iterator i = h.mem.find(addr);
+//    if(i == h.mem.end())
+//      break;
+//    else
+//      for(size_t j = 0; j < h.width; j++)
+//        o << ((i->second[h.width-j-1] >> 4) & 0xF) << (i->second[h.width-j-1] & 0xF);
+//    o << std::endl;
+//  }
+//
+//  o.setf(flags);
+//
+//  return o;
+//}
 
 
 static uint64_t trace_count = 0;
